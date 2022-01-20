@@ -1,0 +1,1161 @@
+@require: azmath/azmath
+@require: uline/uline
+
+@require: hdecoset
+@require: math
+%@require: fss/fss
+%@require: fss/style
+@require: list
+
+type vertical-align = Top | Bottom | Middle | Ratio of float
+type horizontal-align = HLeft | HCenter | HRight | HRatio of float
+
+module LatexCmds : sig
+	% breaking
+	direct \linebreak : [] inline-cmd
+	direct +clearpage : [] block-cmd
+	direct \clearpage : [] inline-cmd
+	direct +pagebreak : [] block-cmd
+	direct \pagebreak : [] inline-cmd
+	direct +newpage : [] block-cmd
+	direct \newpage : [] inline-cmd
+	
+	% spacing
+	%direct \hfill : [] inline-cmd
+	direct \hspace : [length] inline-cmd
+	direct \hskip : [length] inline-cmd
+	direct \vspace : [length] inline-cmd
+	direct \vskip : [length] inline-cmd
+	direct \mspace : [length] math-cmd
+	direct \mskip : [length] math-cmd
+	direct +vspace : [length] block-cmd
+	direct +vskip : [length] block-cmd
+	direct \rquad : [float] inline-cmd
+	direct \quad : [] inline-cmd
+	direct \hquad : [] inline-cmd
+	direct \qquad : [] inline-cmd
+	direct \mrquad : [float] math-cmd
+	direct \mquad : [] math-cmd
+	direct \mhquad : [] math-cmd
+	direct \mqquad : [] math-cmd
+	
+	% math
+	direct \mathopen  : [inline-text] math-cmd
+	direct \mathclose : [inline-text] math-cmd
+	direct \mathinner : [inline-text] math-cmd
+
+	% box
+	direct \mbox : [inline-text] inline-cmd
+	direct \fbox : [length?; length?; color?; color?; inline-text] inline-cmd
+	direct \doublebox : [length?; length?; color?; color?; inline-text] inline-cmd
+	direct \ovalbox : [length?; length?; color?; color?; inline-text] inline-cmd
+	direct \shadowbox : [length?; length?; color?; color?; length?; color?; inline-text] inline-cmd
+	direct \makebox : [vertical-align?; length; inline-text] inline-cmd
+	direct \framebox : [vertical-align?; length; inline-text] inline-cmd
+	direct \parbox : [vertical-align?; length; block-text] inline-cmd
+	direct \raisebox : [length; inline-text] inline-cmd
+	direct \resizebox : [length?; length?; inline-text] inline-cmd
+	direct \scalebox : [float?; float?; inline-text] inline-cmd
+	direct \movebox : [length; length; inline-text] inline-cmd
+	direct \phantom : [inline-text] inline-cmd
+	direct \rotatebox : [float; inline-text] inline-cmd
+
+	% direct \uline : [inline-text] inline-cmd
+	% direct \muline : [math] math-cmd
+	direct +screen : [inline-text?; horizontal-align?; length?; length?; color?; color?; block-text] block-cmd
+	direct +shadowbox : [inline-text?; horizontal-align?; length?; length?; color?; color?; length?; color?; block-text] block-cmd
+
+	% layout
+	direct +centering   : [inline-text] block-cmd
+	direct +flushleft   : [inline-text] block-cmd
+	direct +flushright  : [inline-text] block-cmd
+	direct +centerings  : [inline-text list] block-cmd
+	direct +flushlefts  : [inline-text list] block-cmd
+	direct +flushrights : [inline-text list] block-cmd
+	direct \overset : [length?; math; math] math-cmd
+	direct \underset : [length?; math; math] math-cmd
+	direct \normal-overset : [length?; inline-text; inline-text] inline-cmd
+	direct \normal-underset : [length?; inline-text; inline-text] inline-cmd
+	direct \overparen : [math?; color?; float?; math] math-cmd
+	direct \underparen : [math?; color?; float?; math] math-cmd
+	direct \overbrace : [math?; color?; float?; math] math-cmd
+	direct \underbrace : [math?; color?; float?; math] math-cmd
+	direct \overangle : [math?; color?; float?; math] math-cmd
+	direct \underangle : [math?; color?; float?; math] math-cmd
+	direct \oversqbracket : [math?; color?; float?; math] math-cmd
+	direct \undersqbracket : [math?; color?; float?; math] math-cmd
+	direct \normal-overparen : [inline-text?; color?; float?; inline-text] inline-cmd
+	direct \normal-underparen : [inline-text?; color?; float?; inline-text] inline-cmd
+	direct \normal-overbrace : [inline-text?; color?; float?; inline-text] inline-cmd
+	direct \normal-underbrace : [inline-text?; color?; float?; inline-text] inline-cmd
+	direct \normal-overangle : [inline-text?; color?; float?; inline-text] inline-cmd
+	direct \normal-underangle : [inline-text?; color?; float?; inline-text] inline-cmd
+	direct \normal-oversqbracket : [inline-text?; color?; float?; inline-text] inline-cmd
+	direct \normal-undersqbracket : [inline-text?; color?; float?; inline-text] inline-cmd
+	
+	% fonts
+	direct +fontsize : [length; block-text] block-cmd
+	direct \fontsize : [length; inline-text] inline-cmd
+	direct \mfontsize : [length; math] math-cmd
+	direct +rfontsize : [float; block-text] block-cmd
+	direct \rfontsize : [float; inline-text] inline-cmd
+	direct \mrfontsize : [float; math] math-cmd
+	direct +textcolor : [color; block-text] block-cmd
+	direct \textcolor : [color; inline-text] inline-cmd
+	direct \mtextcolor : [color; math] math-cmd
+	direct \math-middle : [math] math-cmd
+	direct \text-middle : [inline-text] inline-cmd
+	%direct \textit : [inline-text] inline-cmd
+	%direct \textbf : [inline-text] inline-cmd
+end = struct
+	let get-leading ctx =
+		let s = `aa` in
+		% NOTE: font size should be small enough to get correct value
+		let ctx = ctx |> set-font-size 5pt |> set-min-gap-of-lines 0pt in
+		let ib = read-inline ctx (embed-string s) in
+		let ib = ib ++ (discretionary 0 inline-nil inline-nil inline-nil) ++ ib in
+		let (w, h, d) = get-natural-metrics ib in
+		let wid = w *' 0.5 in
+		let ib1 = embed-block-top ctx wid (fun ctx -> line-break false false ctx ib) in
+		let (_, h1, d1) = get-natural-metrics ib1 in
+		let () = display-message (show-float ((h1 +' d1 -' h -' d) /' 1pt)) in
+		h1 +' d1 -' h -' d
+
+	let get-min-gap-of-lines ctx =
+		let s = `aa` in
+		let ctx = ctx |> set-leading 0pt in
+		let ib = read-inline ctx (embed-string s) in
+		let ib = ib ++ (discretionary 0 inline-nil inline-nil inline-nil) ++ ib in
+		let (w, h, d) = get-natural-metrics ib in
+		let wid = w *' 0.5 in
+		let ib1 = embed-block-top ctx wid (fun ctx -> line-break false false ctx ib) in
+		let (_, h1, d1) = get-natural-metrics ib1 in
+		h1 +' d1 -' (h +' d) *' 2.0
+
+	let-inline ctx \linebreak =
+		let h = get-leading ctx -' get-font-size ctx in
+		let g = get-min-gap-of-lines ctx in
+		let gap = if h <' g then g else h in
+		let ib-block = embed-block-breakable ctx (block-skip gap) in
+		inline-fil ++ ib-block
+
+	let-inline ctx \vspace gap =
+		let ib-block = embed-block-breakable ctx (block-skip gap) in
+		inline-fil ++ ib-block
+
+	let-block ctx +clearpage = clear-page
+	let-block ctx +newpage   = clear-page
+	let-block ctx +pagebreak = clear-page
+	let-inline ctx \clearpage = inline-fil ++ (embed-block-breakable ctx clear-page)
+	let-inline ctx \newpage   = inline-fil ++ (embed-block-breakable ctx clear-page)
+	let-inline ctx \pagebreak = inline-fil ++ (embed-block-breakable ctx clear-page)
+
+
+	let-inline ctx \hfill = inline-fil
+	let-inline ctx \hspace len = inline-skip len
+	let-inline ctx \hskip  len = inline-skip len
+	let-inline ctx \vspace len = inline-fil ++ (embed-block-breakable ctx (block-skip len))
+	let-inline ctx \vskip  len = inline-fil ++ (embed-block-breakable ctx (block-skip len))
+	let-block ctx +vspace len = block-skip len
+	let-block ctx +vskip  len = block-skip len
+	let-math \mspace len = ${\text!{\hspace(len);}}
+	let-math \mskip  len = ${\text!{\hspace(len);}}
+	let-inline ctx \rquad r = inline-skip ((get-font-size ctx) *' r)
+	let-inline \quad  = {\rquad(1.0);}
+	let-inline \hquad = {\rquad(0.5);}
+	let-inline \qquad = {\rquad(2.0);}
+	let-math \mrquad r = text-in-math MathOrd (fun ctx -> (
+		inline-skip (get-font-size ctx *' r)
+	))
+	let-math \mquad  = ${\mrquad!(1.0)}
+	let-math \mhquad = ${\mrquad!(0.5)}
+	let-math \mqquad = ${\mrquad!(2.0)}
+
+	let-math \mathopen  it = text-in-math MathOpen  (fun ctx -> read-inline ctx it)
+	let-math \mathclose it = text-in-math MathClose (fun ctx -> read-inline ctx it)
+	let-math \mathinner it = text-in-math MathInner (fun ctx -> read-inline ctx it)
+	
+	let-inline ctx \parbox ?:alignopt wid bt =
+		let align = Option.from Top alignopt in
+		match align with
+		| Top -> embed-block-top ctx wid (fun ctx -> read-block ctx bt)
+		| Bottom -> embed-block-top ctx wid (fun ctx -> read-block ctx bt)
+		| _ -> (
+			  let r = match align with
+				  | Ratio(r) -> r
+				  | _ -> 0.5
+			  in
+			  let box = embed-block-top ctx wid (fun ctx -> read-block ctx bt) in
+			  let (_, h, d) = get-natural-metrics box in
+			  let ctx-raise = set-manual-rising ((h +' d) *' r) ctx in
+			  embed-block-top ctx-raise wid (fun ctx -> read-block ctx bt)
+		)
+	
+	let-inline ctx \mbox it =
+		let ib = read-inline ctx it in
+		let f _ _ _ _ = [] in
+		inline-frame-inner (0pt, 0pt, 0pt, 0pt) f ib
+	
+	let-inline ctx \makebox ?:alignopt wid it =
+		let align = Option.from Top alignopt in
+		let blockf ctx =
+			line-break true true ctx (inline-fil ++ read-inline ctx it ++ inline-fil) in
+		match align with
+		| Top -> embed-block-top ctx wid blockf
+		| Bottom -> embed-block-top ctx wid blockf
+		| _ -> (
+			  let r = match align with
+				  | Ratio(r) -> r
+				  | _ -> 0.5
+			  in
+			  let box = embed-block-top ctx wid blockf in
+			  let (_, h, d) = get-natural-metrics box in
+			  let ctx-raise = set-manual-rising ((h +' d) *' r) ctx in
+			  embed-block-top ctx-raise wid blockf
+		)
+
+	let-inline ctx \raisebox d it =
+		let ctx = set-manual-rising d ctx in
+		read-inline ctx it
+	
+	let-inline ctx \resizebox ?:w ?:h it =
+		let ib = read-inline ctx it in
+		let (ow, oh, od) = get-natural-metrics ib in
+		let w = Option.from ow w in
+		let r = oh /' (oh +' od) in
+		let hh = Option.from (oh +' od) h in
+		let h = hh *' r in
+		let d = hh -' h in
+		inline-graphics w h d (fun (x, y) -> [
+			draw-text (x, y) ib |> linear-transform-graphics (w /' ow) 0. 0. r
+		])
+	
+	let-inline ctx \rotatebox theta it =
+		let ib = read-inline ctx it in
+		let theta = if 0pt >' 1pt *' theta then
+			theta +. 6.283 *. ceil ((0.0 -. theta) /. 6.283)
+		else
+			theta -. 6.283 *. floor (theta /. 6.283)
+		in
+		let () = display-message (show-float theta) in
+		let (w0, h0, d0) = get-natural-metrics ib in
+		let abs a = if 1pt *' a >' 0pt then a else 0.0 -. a in
+		let wl = w0 *' (0.5 *. abs (cos theta)) +' h0 *' (abs (sin theta)) in
+		let ws = w0 *' (0.5 *. abs (cos theta)) +' d0 *' (abs (sin theta)) in
+		let p = if 1pt *' theta >' 1pt *' 3.1415 then ws else wl in
+		let h = w0 *' (0.5 *. abs (sin theta)) +' h0 *' (abs (cos theta)) in
+		let d = w0 *' (0.5 *. abs (sin theta)) +' d0 *' (abs (cos theta)) in
+		inline-graphics (wl +' ws) h d (fun (x, y) -> [
+			draw-text (x +' p -' (w0 *' 0.5), y) ib |> Gr.rotate-graphics (x +' p, y) (theta *. 57.296)
+		])
+
+	let-inline ctx \scalebox ?:rw ?:rh it =
+		let ib = read-inline ctx it in
+		let (ow, oh, od) = get-natural-metrics ib in
+		let rw = Option.from 1. rw in
+		let rh = Option.from 1. rh in
+		inline-graphics (ow *' rw) (oh *' rh) (od *' rh) (fun (x, y) -> [
+			draw-text (x, y) ib |> linear-transform-graphics rw 0. 0. rh
+		])
+
+	let-inline ctx \movebox dx dy it =
+		let ib = read-inline ctx it in
+		let (w, h, d) = get-natural-metrics ib in
+		inline-graphics w h d (fun (x, y) -> [
+			draw-text (x +' dx, y +' dy) ib
+		])
+
+	let-inline ctx \phantom it =
+		let ib = read-inline ctx it in
+		let (w, h, d) = get-natural-metrics ib in
+		inline-graphics w h d (fun _ -> [])
+	
+	let place-decos fcoloropt pads f =
+		let (pw, pe, pn, ps) = pads in
+		let f-s x y w h d = f x (y -' d) w ps in
+		let f-n x y w h d = f (x +' w) (y +' h) w pn 
+			|> List.map (Gr.rotate-graphics (x +' w, y +' h) 180.0) in
+		let f-w x y w h d = f x (y +' h) (d +' h) pw
+			|> List.map (Gr.rotate-graphics (x, y +' h) 270.0) in
+		let f-e x y w h d = f (x +' w) (y -' d) (d +' h) pe
+			|> List.map (Gr.rotate-graphics (x +' w, y -' d) 90.0) in
+		let f-fill p0 p1 =
+			match fcoloropt with
+			| Some(fcolor) -> [fill fcolor (Gr.rectangle p0 p1)]
+			| None -> []
+		in
+		let decoS (x, y) w h d = List.concat [
+			f-fill (x +' pw, y -' d +' ps) (x +' w -' pe, y +' h -' pn);
+			f-n x y w h d; f-e x y w h d;
+			f-s x y w h d; f-w x y w h d;
+		] in
+		let decoH (x, y) w h d = List.concat [
+			f-fill (x +' pw, y -' d +' ps) (x +' w, y +' h -' pn);
+			f-n x y w h d; f-s x y w h d; f-w x y w h d;
+		] in
+		let decoM (x, y) w h d = List.concat [
+			f-fill (x, y -' d +' ps) (x +' w, y +' h -' pn);
+			f-n x y w h d; f-s x y w h d;
+		] in
+		let decoT (x, y) w h d = List.concat [
+			f-fill (x, y -' d +' ps) (x +' w -' pe, y +' h -' pn);
+			f-n x y w h d; f-e x y w h d; f-s x y w h d;
+		] in
+		(decoS, decoH, decoM, decoT)
+
+	let place-decos-v pads f-top f-middle f-bottom =
+		let (pw, pe, pn, ps) = pads in
+		let decoS (x, y) w h d = List.concat [
+			f-middle x (y +' ps) w (h -' pn -' ps);
+			f-top x (y +' h -' pn) w pn;
+			f-bottom x y w ps;
+		] in
+		let decoH (x, y) w h d = List.concat [
+			f-middle x (y +' ps) w (h -' pn -' ps);
+			f-top x (y +' h -' pn) w pn;
+		] in
+		let decoM (x, y) w h d = List.concat [
+			f-middle x (y +' ps) w (h -' pn -' ps);
+		] in
+		let decoT (x, y) w h d = List.concat [
+			f-middle x (y +' ps) w (h -' pn -' ps);
+			f-bottom x y w ps;
+		] in
+		(decoS, decoH, decoM, decoT)
+
+	let-block ctx +screen ?:itopt ?:vaopt ?:lopt ?:popt ?:scoloropt ?:fcoloropt bt =
+		let l = Option.from 2pt lopt in
+		let p = Option.from (get-font-size ctx) popt in
+		let scolor = Option.from (get-text-color ctx) scoloropt in
+		let it = Option.from {} itopt in
+		let ib = read-inline ctx it in
+		let (w0, h0, d0) = get-natural-metrics ib in
+		let (h0, d0) = (h0 *' 0.5, h0 *' 0.5 +' d0) in
+		let pt = h0 +' length-max p d0 in
+		let pads = (p, p, pt, p) in
+
+		let f-top x y w h = (
+			let rr = match vaopt with
+				| Some(HLeft) -> 0.0
+				| Some(HRight) -> 1.0
+				| Some(HRatio(a)) -> a
+				| _ -> 0.5
+			in
+			let dx = (w -' p -' p -'w0) *' rr in
+			let (dx, w0) = if dx >' 0pt then (dx, w0) else ((w -' p -' p) *' 0.5, 0pt) in
+			let pth0 = start-path (x, y)
+				|> bezier-to (x, y +' h -' h0) (x, y +' h -' h0) (x +' p, y +' h -' h0)
+				|> line-to (x +' p +' dx, y +' h -' h0)
+			in
+			let pth1 = start-path (x +' w, y)
+				|> bezier-to (x +' w, y +' h -' h0) (x +' w, y +' h -' h0) (x +' w -' p, y +' h -' h0)
+				|> line-to (x +' p +' w0 +' dx, y +' h -' h0)
+			in
+			List.concat [
+				(
+					match fcoloropt with
+					| Some(fcolor) -> [
+						  fill fcolor (pth0 |> line-to (x +' p +' dx, y) |> close-with-line);
+						  fill fcolor (pth1 |> line-to (x +' p +' dx +' w0, y) |> close-with-line);
+						  fill fcolor (Gr.rectangle (x +' p +' dx, y) (x +' p +' dx +' w0, y +' h -' h0 -' d0));
+					]
+					| None -> []
+				);
+				[
+					stroke l scolor (terminate-path pth0);
+					stroke l scolor (terminate-path pth1);
+					draw-text (x +' p +' dx, y +' h -' h0 -' h0) ib;
+				];
+			]
+		) in
+		let f-middle x y w h = (
+			let g = List.map (stroke l scolor) [
+				Gr.line (x, y) (x, y +' h);
+				Gr.line (x +' w, y) (x +' w, y +' h);
+			] in
+			match fcoloropt with
+			| Some(fcolor) -> (fill fcolor (Gr.rectangle (x, y) (x +' w, y +' h))) :: g
+			| None -> g
+		) in
+		let f-bottom x y w h = (
+			let pth0 = start-path (x, y +' h)
+				|> bezier-to (x, y) (x, y) (x +' p, y)
+				|> line-to (x +' w -' p, y)
+				|> bezier-to (x +' w, y) (x +' w, y) (x +' w, y +' h)
+			in
+			match fcoloropt with
+			| Some(fcolor) -> [
+				  fill fcolor (pth0 |> close-with-line);
+				  stroke l scolor (pth0 |> terminate-path);
+			]
+			| None -> [
+				  stroke l scolor (pth0 |> terminate-path);
+			]
+		) in
+		let decos = place-decos-v pads f-top f-middle f-bottom in
+		block-frame-breakable ctx pads decos (fun ctx -> read-block ctx bt)
+
+	let-block ctx +shadowbox ?:itopt ?:vaopt ?:lopt ?:popt ?:scoloropt ?:fcoloropt ?:dropopt ?:dropcoloropt bt =
+		let l = Option.from 2pt lopt in
+		let p = Option.from (get-font-size ctx) popt in
+		let drop = Option.from p dropopt in
+		let dropcolor = Option.from (get-text-color ctx) dropcoloropt in
+		let scolor = Option.from (get-text-color ctx) scoloropt in
+		let it = Option.from {} itopt in
+		let ib = read-inline ctx it in
+		let (w0, h0, d0) = get-natural-metrics ib in
+		let (h0, d0) = (h0 *' 0.5, h0 *' 0.5 +' d0) in
+		let pt = h0 +' length-max p d0 in
+		let pads = (p, p +' drop, pt, p +' drop) in
+
+		let f-top x y w h = (
+			let rr = match vaopt with
+				| Some(HLeft) -> 0.0
+				| Some(HRight) -> 1.0
+				| Some(HRatio(a)) -> a
+				| _ -> 0.5
+			in
+			let dx = (w -' w0 -' drop) *' rr in
+			let (dx, w0) = if dx >' 0pt then (dx, w0) else ((w -' drop) *' 0.5, 0pt) in
+			let pth0 = start-path (x, y)
+				|> line-to (x, y +' h -' h0)
+				|> line-to (x +' dx, y +' h -' h0)
+			in
+			let pth1 = start-path (x +' w -' drop, y)
+				|> line-to (x +' w -' drop, y +' h -' h0)
+				|> line-to (x +' w0 +' dx, y +' h -' h0)
+			in
+			List.concat [
+				(
+					match fcoloropt with
+					| Some(fcolor) -> [
+						  fill fcolor (pth0 |> line-to (x +' dx, y) |> close-with-line);
+						  fill fcolor (pth1 |> line-to (x +' dx +' w0, y) |> close-with-line);
+						  fill fcolor (Gr.rectangle (x +' dx, y) (x +' dx +' w0, y +' h -' h0 -' d0));
+					]
+					| None -> []
+				);
+				(
+					if h >' drop +' h0 then [
+						fill dropcolor (Gr.rectangle (x +' w, y) (x +' w -' drop, y +' h -' drop -' h0))
+					] else []
+				);
+				[
+					stroke l scolor (terminate-path pth0);
+					stroke l scolor (terminate-path pth1);
+					draw-text (x +' dx, y +' h -' h0 -' h0) ib;
+				];
+			]
+		) in
+		let f-middle x y w h = (
+			let tmargin = length-max 0pt (drop +' h0 -' pt) in
+			let g =
+				(fill dropcolor (Gr.rectangle (x +' w -' drop, y)(x +' w, y +' h -' tmargin)))
+				::
+				(
+					List.map (stroke l scolor) [
+						Gr.line (x, y) (x, y +' h);
+						Gr.line (x +' w -' drop, y) (x +' w -' drop, y +' h);
+					]
+				)
+			in
+			match fcoloropt with
+			| Some(fcolor) -> (fill fcolor (Gr.rectangle (x, y) (x +' w, y +' h))) :: g
+			| None -> g
+		) in
+		let f-bottom x y w h = (
+			let pth0 = start-path (x, y +' h)
+				|> line-to (x, y +' drop)
+				|> line-to (x +' w -' drop, y +' drop)
+				|> line-to (x +' w -' drop, y +' h)
+			in
+			List.concat [
+				(
+					match fcoloropt with
+					| Some(fcolor) -> [ fill fcolor (pth0 |> close-with-line); ]
+					| None -> []
+				)
+				;
+				[
+					fill dropcolor (Gr.rectangle (x +' drop, y) (x +' w, y +' drop));
+					fill dropcolor (Gr.rectangle (x +' w -' drop, y) (x +' w, y +' h));
+					stroke l scolor (pth0 |> terminate-path);
+				]
+			]
+		) in
+		let decos = place-decos-v pads f-top f-middle f-bottom in
+		block-frame-breakable ctx pads decos (fun ctx -> read-block ctx bt)
+
+	let-inline ctx \fbox ?:lopt ?:popt ?:scoloropt ?:fcoloropt it =
+		let ib = read-inline ctx it in
+		let l = (Option.from 0.4pt lopt) in
+		let p = (Option.from 3pt popt) +' l in
+		let scolor = Option.from (get-text-color ctx) scoloropt in
+		let pads = (p, p, p, p) in
+		let f x y w h = 
+			(stroke l scolor (Gr.line (x, y) (x +' w, y))) :: (
+				match fcoloropt with
+				| Some(fcolor) -> [fill fcolor (Gr.rectangle (x, y) (x +' w, y +' h))]
+				| None -> []
+			)
+		in
+		let decos = place-decos fcoloropt pads f in
+		inline-frame-breakable pads decos ib
+
+	let-inline ctx \doublebox ?:lopt ?:popt ?:scoloropt ?:fcoloropt it =
+		let ib = read-inline ctx it in
+		let l = (Option.from 0.4pt lopt) in
+		let d = l *' 4.0 in
+		let p = (Option.from 3pt popt) +' d in
+		let scolor = Option.from (get-text-color ctx) scoloropt in
+		let pads = (p, p, p, p) in
+		let f x y w h =
+			List.concat [
+				match fcoloropt with
+				| Some(fcolor) -> [fill fcolor (Gr.rectangle (x +' d, y +' d) (x +' w -' d, y +' h))]
+				| None -> []
+				;
+				[
+					Gr.line (x, y) (x +' w, y);
+					Gr.line (x +' d, y +' d) (x +' w -' d, y +' d);
+				] |> List.map (stroke l scolor) ;
+			]
+		in
+		let decos = place-decos fcoloropt pads f in
+		inline-frame-breakable pads decos ib
+
+	let-inline ctx \ovalbox ?:lopt ?:popt ?:scoloropt ?:fcoloropt it =
+		let ib = read-inline ctx it in
+		let l = (Option.from 0.4pt lopt) in
+		let p = (Option.from 3pt popt) +' l in
+		let scolor = Option.from (get-text-color ctx) scoloropt in
+		let pads = (p, p, p, p) in
+		let r = p *' 3.0 in
+		let f x y w h = (
+			let pat = start-path (x, y +' r)
+				|> bezier-to (x, y) (x, y) (x +' r, y)
+				|> line-to (x +' w -' r, y)
+				|> bezier-to (x +' w, y) (x +' w, y) (x +' w, y +' r)
+				|> terminate-path
+			in
+			match fcoloropt with
+			| Some(fcolor) -> [fill fcolor pat; stroke l scolor pat]
+			| None -> [stroke l scolor pat]
+		) in
+		let decos = place-decos fcoloropt pads f in
+		inline-frame-breakable pads decos ib
+
+	let-inline ctx \shadowbox ?:lopt ?:popt ?:scoloropt ?:fcoloropt ?:dropopt ?:dropcoloropt it =
+		let ib = read-inline ctx it in
+		let l = (Option.from 0.4pt lopt) in
+		let p = (Option.from 3pt popt) +' l in
+		let drop = Option.from (p *' 2.0) dropopt in
+		let scolor = Option.from (get-text-color ctx) scoloropt in
+		let dropcolor = Option.from scolor dropcoloropt in
+		let pads = (p, p +' drop, p, p +' drop) in
+		let f x y w h = 
+			(
+				let pat = Gr.rectangle (x, y) (x +' w, y +' h) in
+				match fcoloropt with
+				| Some(fcolor) -> [fill fcolor pat; stroke l scolor pat]
+				| None -> [stroke l scolor pat]
+			)
+		in
+		let decoS (x, y) w h d =
+			(Gr.rectangle (x +' drop, y -' d) (x +' w, y +' h -' drop) |> fill dropcolor)
+				:: f x (y -' d +' drop) (w -' drop) (d +' h -' drop)
+		in
+		let decoH (x, y) w h d =
+			(Gr.rectangle (x +' drop, y -' d) (x +' w, y +' h -' drop) |> fill dropcolor)
+				:: f x (y -' d +' drop) w (d +' h -' drop)
+		in
+		let decoM (x, y) w h d =
+			(Gr.rectangle (x, y -' d) (x +' w, y +' h -' drop) |> fill dropcolor)
+				:: f x (y -' d +' drop) w (d +' h -' drop)
+		in
+		let decoT (x, y) w h d =
+			(Gr.rectangle (x, y -' d) (x +' w, y +' h -' drop) |> fill dropcolor)
+				:: f x (y -' d +' drop) (w -' drop) (d +' h -' drop)
+		in
+		let decos = (decoS, decoH, decoM, decoT) in
+		inline-frame-breakable pads decos ib
+
+	let-inline ctx \framebox ?:alignopt wid it =
+		let ita = match alignopt with
+		| None -> {\fbox{\makebox(wid){#it;}}}
+		| Some(a) -> {\fbox{\makebox?:(a)(wid){#it;}}}
+		in
+		read-inline ctx ita
+
+	let-inline ctx \normal-overset ?:gapopt it-sub it =
+		let gap = Option.from (get-font-size ctx *' 0.25) gapopt in
+		let ib = read-inline ctx it in
+		let (w-main, h-main, d-main) = get-natural-metrics ib in
+		let ib-sub = read-inline ctx it-sub in
+		let (w-sub, h-sub, d-sub) = get-natural-metrics ib-sub in
+		let w = if w-main >' w-sub then w-main else w-sub in
+		let h = h-main +' gap +' h-sub +' d-sub in
+		let d = d-sub in
+		inline-graphics w h d (fun (x, y) -> (
+			[
+				draw-text (x +' (w -' w-main) *' 0.5, y) ib;
+				draw-text (x +' (w -' w-sub) *' 0.5, y +' h-main +' gap +' d-sub) ib-sub;
+			]
+		))
+
+	let-inline ctx \normal-underset ?:gapopt it-sub it =
+		let gap = Option.from (get-font-size ctx *' 0.25) gapopt in
+		let ib = read-inline ctx it in
+		let (w-main, h-main, d-main) = get-natural-metrics ib in
+		let ib-sub = read-inline ctx it-sub in
+		let (w-sub, h-sub, d-sub) = get-natural-metrics ib-sub in
+		let w = if w-main >' w-sub then w-main else w-sub in
+		let h = h-main in
+		let d = d-sub +' gap +' h-sub +' d-sub in
+		inline-graphics w h d (fun (x, y) -> (
+			[
+				draw-text (x +' (w -' w-main) *' 0.5, y) ib;
+				draw-text (x +' (w -' w-sub) *' 0.5, y -' h-sub +' gap +' d-main) ib-sub;
+			]
+		))
+
+	let-math \overset ?:gapopt mt-sub mt =
+		let m ctx = match gapopt with
+			|None -> {\normal-overset{${mt-sub}}{${mt}}}
+			|Some(gap) -> {\normal-overset?:(gap){${mt-sub}}{${mt}}}
+		in
+		text-in-math MathOrd (fun ctx -> read-inline ctx (m ctx))
+
+	let-math \underset ?:gapopt mt-sub mt =
+		let m ctx = match gapopt with
+			|None -> {\normal-underset{${mt-sub}}{${mt}}}
+			|Some(gap) -> {\normal-underset?:(gap){${mt-sub}}{${mt}}}
+		in
+		text-in-math MathOrd (fun ctx -> read-inline ctx (m ctx))
+	
+	let overparen-scheme ctx paren color r it0 it1 = 
+		let hh = get-font-size ctx *' r in
+		let ib0 = read-inline (set-font-size hh ctx) it0 in
+		let (w0, h0, d0) = get-natural-metrics ib0 in
+		let ib1 = read-inline ctx it1 in
+		let (w1, h1, d1) = get-natural-metrics ib1 in
+		let (ib2, _) = paren 0pt 0pt 0pt w1 color in
+		let (w2, h2, d2) = get-natural-metrics ib2 in
+		let ww = h2 +' d2 in
+		let rr = hh /' w2 in
+		let w = length-max (h2 +' d2) (length-max w0 w1) in
+		let h = h0 +' d0 +' hh +' h1 in
+		let d = d1 in
+		inline-graphics w h d (fun (x, y) -> [
+			(let p = (x +' w *' 0.5, y +' h1) in
+			draw-text p ib2
+				|> Gr.rotate-graphics p 90.0
+				|> Gr.scale-graphics p 1.0 rr
+			);
+			draw-text (x +' (w -' w0) *' 0.5, y +' d0 +' hh +' h1) ib0;
+			draw-text (x +' (w -' w1) *' 0.5, y) ib1;
+		])
+	
+	let underparen-scheme ctx paren color r it0 it1 = 
+		let hh = get-font-size ctx *' r in
+		let ib0 = read-inline (set-font-size (get-font-size ctx *' r) ctx) it0 in
+		let (w0, h0, d0) = get-natural-metrics ib0 in
+		let ib1 = read-inline ctx it1 in
+		let (w1, h1, d1) = get-natural-metrics ib1 in
+		let (ib2, _) = paren 0pt 0pt 0pt w1 color in
+		let (w2, h2, d2) = get-natural-metrics ib2 in
+		let rr = hh /' w2 in
+		let ww = h2 +' d2 in
+		let w = length-max (h2 +' d2) (length-max w0 w1) in
+		let h = h1 in
+		let d = d1 +' hh +' h0 +' d0 in
+		inline-graphics w h d (fun (x, y) -> [
+			(let p = (x +' w *' 0.5, y -' d1 -' hh) in
+			draw-text p ib2
+				|> Gr.rotate-graphics p 90.0
+				|> Gr.scale-graphics p 1.0 rr
+			);
+			draw-text (x +' (w -' w0) *' 0.5, y -' d1 -' hh -' h0) ib0;
+			draw-text (x +' (w -' w1) *' 0.5, y) ib1;
+		])
+	
+	let-inline ctx \normal-overparen ?:it0opt ?:coloropt ?:ropt it1 =
+		let it0 = Option.from {} it0opt in
+		let r = Option.from 0.5 ropt in
+		let color = Option.from (get-text-color ctx) coloropt in
+		overparen-scheme ctx (Math.paren-right) color r it0 it1
+
+	let-inline ctx \normal-underparen ?:it0opt ?:coloropt ?:ropt it1 =
+		let it0 = Option.from {} it0opt in
+		let r = Option.from 0.5 ropt in
+		let color = Option.from (get-text-color ctx) coloropt in
+		underparen-scheme ctx (Math.paren-left) color r it0 it1
+	
+	let-inline ctx \normal-overbrace ?:it0opt ?:coloropt ?:ropt it1 =
+		let it0 = Option.from {} it0opt in
+		let r = Option.from 0.5 ropt in
+		let color = Option.from (get-text-color ctx) coloropt in
+		overparen-scheme ctx (Math.brace-right) color r it0 it1
+
+	let-inline ctx \normal-underbrace ?:it0opt ?:coloropt ?:ropt it1 =
+		let it0 = Option.from {} it0opt in
+		let r = Option.from 0.5 ropt in
+		let color = Option.from (get-text-color ctx) coloropt in
+		underparen-scheme ctx (Math.brace-left) color r it0 it1
+	
+	let-inline ctx \normal-overangle ?:it0opt ?:coloropt ?:ropt it1 =
+		let it0 = Option.from {} it0opt in
+		let r = Option.from 0.5 ropt in
+		let color = Option.from (get-text-color ctx) coloropt in
+		overparen-scheme ctx (Math.angle-right 1pt) color r it0 it1
+
+	let-inline ctx \normal-underangle ?:it0opt ?:coloropt ?:ropt it1 =
+		let it0 = Option.from {} it0opt in
+		let r = Option.from 0.5 ropt in
+		let color = Option.from (get-text-color ctx) coloropt in
+		underparen-scheme ctx (Math.angle-left 1pt) color r it0 it1
+	
+	let-inline ctx \normal-oversqbracket ?:it0opt ?:coloropt ?:ropt it1 =
+		let it0 = Option.from {} it0opt in
+		let r = Option.from 0.5 ropt in
+		let color = Option.from (get-text-color ctx) coloropt in
+		overparen-scheme ctx (Math.sqbracket-right) color r it0 it1
+
+	let-inline ctx \normal-undersqbracket ?:it0opt ?:coloropt ?:ropt it1 =
+		let it0 = Option.from {} it0opt in
+		let r = Option.from 0.5 ropt in
+		let color = Option.from (get-text-color ctx) coloropt in
+		underparen-scheme ctx (Math.sqbracket-left) color r it0 it1
+
+	let-math \overparen ?:m0opt ?:coloropt ?:ropt m1 =
+		let m0 = Option.from ${} m0opt in
+		let r = Option.from 0.5 ropt in
+		text-in-math MathOrd (fun ctx -> (
+			let color = Option.from (get-text-color ctx) coloropt in
+			read-inline ctx {\normal-overparen?:({${#m0}})?:(color)?:(r)({${#m1}});}
+		))
+
+	let-math \underparen ?:m0opt ?:coloropt ?:ropt m1 =
+		let m0 = Option.from ${} m0opt in
+		let r = Option.from 0.5 ropt in
+		text-in-math MathOrd (fun ctx -> (
+			let color = Option.from (get-text-color ctx) coloropt in
+			read-inline ctx {\normal-underparen?:({${#m0}})?:(color)?:(r)({${#m1}});}
+		))
+	
+	let-math \overbrace ?:m0opt ?:coloropt ?:ropt m1 =
+		let m0 = Option.from ${} m0opt in
+		let r = Option.from 0.5 ropt in
+		text-in-math MathOrd (fun ctx -> (
+			let color = Option.from (get-text-color ctx) coloropt in
+			read-inline ctx {\normal-overbrace?:({${#m0}})?:(color)?:(r)({${#m1}});}
+		))
+
+	let-math \underbrace ?:m0opt ?:coloropt ?:ropt m1 =
+		let m0 = Option.from ${} m0opt in
+		let r = Option.from 0.5 ropt in
+		text-in-math MathOrd (fun ctx -> (
+			let color = Option.from (get-text-color ctx) coloropt in
+			read-inline ctx {\normal-underbrace?:({${#m0}})?:(color)?:(r)({${#m1}});}
+		))
+	
+	let-math \overangle ?:m0opt ?:coloropt ?:ropt m1 =
+		let m0 = Option.from ${} m0opt in
+		let r = Option.from 0.5 ropt in
+		text-in-math MathOrd (fun ctx -> (
+			let color = Option.from (get-text-color ctx) coloropt in
+			read-inline ctx {\normal-overangle?:({${#m0}})?:(color)?:(r)({${#m1}});}
+		))
+
+	let-math \underangle ?:m0opt ?:coloropt ?:ropt m1 =
+		let m0 = Option.from ${} m0opt in
+		let r = Option.from 0.5 ropt in
+		text-in-math MathOrd (fun ctx -> (
+			let color = Option.from (get-text-color ctx) coloropt in
+			read-inline ctx {\normal-underangle?:({${#m0}})?:(color)?:(r)({${#m1}});}
+		))
+	
+	let-math \oversqbracket ?:m0opt ?:coloropt ?:ropt m1 =
+		let m0 = Option.from ${} m0opt in
+		let r = Option.from 0.5 ropt in
+		text-in-math MathOrd (fun ctx -> (
+			let color = Option.from (get-text-color ctx) coloropt in
+			read-inline ctx {\normal-oversqbracket?:({${#m0}})?:(color)?:(r)({${#m1}});}
+		))
+
+	let-math \undersqbracket ?:m0opt ?:coloropt ?:ropt m1 =
+		let m0 = Option.from ${} m0opt in
+		let r = Option.from 0.5 ropt in
+		text-in-math MathOrd (fun ctx -> (
+			let color = Option.from (get-text-color ctx) coloropt in
+			read-inline ctx {\normal-undersqbracket?:({${#m0}})?:(color)?:(r)({${#m1}});}
+		))
+	
+	let centering-scheme ctx it b1 b2 =
+		let ctxc = set-every-word-break b1 b2 ctx in
+		line-break true true ctx (b2 ++ read-inline ctxc it ++ b1)
+
+	let-block ctx +centering it = centering-scheme ctx it inline-fil inline-fil
+	let-block ctx +flushright it = centering-scheme ctx it inline-nil inline-fil
+	let-block ctx +flushleft it = centering-scheme ctx it inline-fil inline-nil
+
+	let centerings-scheme ctx its b1 b2 =
+		let l = get-leading ctx -' get-font-size ctx in
+		let ctx = ctx |> set-paragraph-margin l l
+				      |> set-every-word-break b1 b2 in
+		let bbs =
+			its |> List.map (fun it ->
+				line-break true true ctx
+					(b2 ++ read-inline ctx it ++ b1))
+		in
+		bbs |> List.fold-left (+++) block-nil
+
+	let-block ctx +centerings its  = centerings-scheme ctx its inline-fil inline-fil
+	let-block ctx +flushlefts its  = centerings-scheme ctx its inline-nil inline-fil
+	let-block ctx +flushrights its = centerings-scheme ctx its inline-fil inline-nil
+	
+	let-block ctx +fontsize size bt = read-block (set-font-size size ctx) bt
+	let-inline ctx \fontsize size it = read-inline (set-font-size size ctx) it
+	let-math \mfontsize size mt =
+		text-in-math MathOrd (fun ctx -> (
+			read-inline (set-font-size size ctx) {${#mt}}
+		))
+	let-block ctx +rfontsize r bt =
+		let size = get-font-size ctx in
+		read-block (set-font-size (size *' r) ctx) bt
+	let-inline ctx \rfontsize r it =
+		let size = get-font-size ctx in
+		read-inline (set-font-size (size *' r) ctx) it
+	let-math \mrfontsize r mt =
+		text-in-math MathOrd (fun ctx -> (
+			let size = get-font-size ctx in
+			read-inline (set-font-size (size *' r) ctx) {${#mt}}
+		))
+
+	let-math \math-middle m =
+		text-in-math MathOrd (fun ctx -> (
+			let it = {${#m}} in
+			let ib = read-inline ctx it in
+			let (w, h, d) = get-natural-metrics ib in
+			let r = (h +' d) *' 0.5 in
+			inline-graphics w r r (fun (x, y) -> ([ draw-text (x, y +' r -' h) ib ]))
+		))
+
+	let-block ctx +textcolor c bt = read-block (set-text-color c ctx) bt
+	let-inline ctx \textcolor c it = read-inline (set-text-color c ctx) it
+	let-math \mtextcolor c mt =
+		text-in-math MathOrd (fun ctx -> (
+			read-inline (set-text-color c ctx) {${#mt}}
+		))
+	
+	let-inline ctx \text-middle it =
+		let ib = read-inline ctx it in
+		let (_, h, d) = get-natural-metrics ib in
+		let ctx = set-manual-rising ((d -' h) *' 0.5) ctx in
+		read-inline ctx it
+
+	
+	%let-inline \textbf it = { \Fss.font-style[FssStyle.bold]{#it;} }
+	%let-inline \textit it = { \Fss.font-style[FssStyle.italic]{#it;} }
+end
+
+
+open LatexCmds
+% +centerings{
+% | 本書は, 2017 年度未踏事業のひとつとして筆者が開発し,
+% | 2018 年 8 月現在も発展を続けている新しい組版処理システム \SATySFi; について
+% | 解説することを目的としたものである.
+% |}
+
+
+
+let-block ctx +p-latin content =
+	let ctx-latin = ctx |> set-font-size (get-font-size ctx *' 1.2) |> set-leading 20pt in
+	line-break true true ctx-latin
+		(inline-skip ((get-font-size ctx-latin) *' 2.) ++ read-inline ctx-latin content ++ inline-fil)
+
+
+let-block ctx +my-frame ib =
+	let pads = (10pt, 10pt, 10pt, 10pt) in
+	let decoset = VDecoSet.simple-frame-stroke 1pt Color.black in
+	block-frame-breakable ctx pads decoset (fun ctx -> read-block ctx ib)
+
+let-block ctx +quotation ib =
+	let pads = (20pt, 20pt, 20pt, 20pt) in
+	let decoset = VDecoSet.simple-frame 0pt Color.black (RGB(0.8,0.8,0.8)) in
+	block-frame-breakable ctx pads decoset (fun ctx -> read-block ctx ib)
+
+let-block ctx +fig-frame ib =
+	let pads = (10pt, 10pt, 10pt, 10pt) in
+	let decoset = VDecoSet.simple-frame 0pt Color.black Color.white in
+	block-frame-breakable ctx pads decoset (fun ctx -> read-block ctx ib)
+let-block ctx +image-frame content =
+	let pads = (10pt, 10pt, 10pt, 10pt) in
+	let decoset = VDecoSet.simple-frame-stroke 1pt Color.black in
+	block-frame-breakable ctx pads decoset (fun ctx -> read-block ctx '<+centering{#content;}>)
+
+
+let-block ctx +paragraph-frame content =
+	let pads = (15pt, 15pt, 15pt, 15pt) in
+	let decoset = VDecoSet.simple-frame-stroke 1pt (Color.gray 0.75) in
+	block-frame-breakable ctx pads decoset (fun ctx -> read-block (ctx |> set-hyphen-penalty 150) content)
+
+
+let-block ctx +math-list mlst =
+	let ib =
+		mlst |> List.fold-left-adjacent (fun ibacc m _ mnextopt -> (
+			let ib = embed-math ctx m in
+			match mnextopt with
+			| None    -> ibacc ++ ib ++ inline-fil
+			| Some(_) -> ibacc ++ ib ++ discretionary 1000 inline-fil inline-fil inline-fil
+		)) inline-fil
+	in
+	line-break true true ctx ib
+
+let-inline ctx \inline-image w path =
+	let image = load-image path in
+	use-image-by-width image w
+
+let-block ctx +insert-image w path =
+	let image = load-image path in
+	let insert-image = use-image-by-width image w in
+	line-break true true ctx (inline-fil ++ insert-image ++ inline-fil)
+
+let-block ctx +insert-pdf n w path =
+	let image = load-pdf-image path n in
+	let insert-image = use-image-by-width image w in
+	line-break true true ctx (inline-fil ++ insert-image ++ inline-fil)
+
+let-block ctx +vertical-aligned height bts =
+	let bbs = bts |> List.map (fun bt -> read-block ctx bt) in
+	let bbs-total-height = bbs |> List.fold-left
+		(fun l bb -> (l +' get-natural-length bb)) 0mm in
+	let bbs-length = List.length bbs in
+	let gap = (height -' bbs-total-height) *' (1.0 /. float (bbs-length - 1)) in
+	match bbs with
+	| [] -> block-skip gap
+	| bb-head :: bbs ->
+		  bb-head +++ (bbs |> List.fold-left (fun bb-before bb -> (
+			  bb-before +++ (block-skip gap) +++ bb
+		  )) block-nil)
+
+let-block ctx +multicolumn items =
+	let (tot-wid, non-cnt) = items |> List.fold-left (fun (l-wid, l-cnt) (wid, bt) -> (
+		let w = Option.from 0mm wid in
+		(l-wid +' w, l-cnt + 1)
+	)) (0mm, 0) in
+	let default-wid = get-text-width ctx *' (1.0 /. float (non-cnt)) in
+	line-break true true ctx ((items |> List.fold-left (fun l (wid, bt) -> (
+		let wid = Option.from default-wid wid in
+		l ++ embed-block-top ctx wid (fun ctx -> read-block ctx bt)
+	) ) inline-fil) ++ inline-fil)
+
+let-inline ctx \underset it-sub it-main =
+	let math-main = text-in-math MathOp (fun ctx -> (read-inline ctx it-main)) in
+	let math-sub = text-in-math MathOp (fun ctx -> (read-inline ctx it-sub)) in
+	let m = math-lower math-main math-sub in
+	embed-math ctx m
+
+let-inline ctx \uline-b it =
+  let color = RGB(1.0,0.5,0.5) in
+  let t = 5pt in
+  let ib = read-inline ctx it in
+  let deco-set = Uline.make-uline t color in
+  let pads = (0pt, 0pt, 0pt, -6pt) in
+    inline-frame-breakable pads deco-set ib
+
+let-inline ctx \uwave-b it =
+  let color = RGB(1.0,0.5,0.5) in
+  let t = 5pt in
+  let ib = read-inline ctx it in
+  let deco-set = Uline.make-uwave t color in
+  let pads = (0pt, 0pt, 0pt, 10pt) in
+    inline-frame-breakable pads deco-set ib
+
+let-inline ctx \fig-hexagon fcolor scolor content =
+	let thickness = 2pt in
+	let pad = 5pt in
+	let ib = read-inline ctx content in
+	let (w, h, d) = get-natural-metrics ib in
+	let a = if w >' (h +' d) then w else h +' d in
+	let aw = a +' pad *' 2.0 in
+	let ah = aw *' (2.0 /. 1.73) in
+	let ha = aw *' 0.5 in
+	let dd = ah *' 0.5 +' d -' ((h +' d) *' 0.5) in
+	let (ww, hh, dd) = (aw, ah -' dd, dd) in
+	inline-graphics ww hh (dd) (fun (x, y) ->
+		(
+			let y = y -' dd in
+			let b = ha *' (1.0 /. 1.73) in
+			let paths = [
+				Gr.polygon (x +' ha, y) [
+					(x, y +' b);
+					(x, y +' ah -' b);
+					(x +' ha, y +' ah);
+					(x +' aw, y +' ah -' b);
+					(x +' aw, y +' b);
+				];
+			] in
+			List.concat [
+				List.map (stroke thickness scolor) paths;
+				List.map (fill fcolor) paths;
+				[ draw-text (x +' (aw -' w) *' 0.5, y +' (ah -' h -' d) *' 0.5) ib ];
+			]
+		)
+	)
+
+
+
+
+
+let-inline ctx \fig-box ?:is-true content =
+	let ib = read-inline ctx (embed-string `あ`) in
+	let (w, h, d) = get-natural-metrics ib in
+	let inset = w *' 0.1 in
+	let outset = w *' 0.5 in
+	let (w, h, d) = (w +' outset *' 2.0, h +' outset *' 2.0, outset) in
+	let hw = w *' 0.5 in
+	let thickness = 1pt in
+	let color = RGB(0.2,0.2,0.2) in
+	let strokes x y =
+		List.map (stroke thickness color) [
+			Gr.polygon (x +' hw, y +' h) [
+				(x, y +' (h *' 0.8));
+				(x, y +' (h *' 0.6));
+				(x +' (w *' 0.5), y +' (h *' 0.4));
+				(x +' w, y +' (h *' 0.6));
+				(x +' w, y +' (h *' 0.8));
+			];
+			Gr.poly-line (x, y +' (h *' 0.8)) [
+				(x +' hw, y +' (h *' 0.6));
+				(x +' w, y +' (h *' 0.8));
+			];
+			Gr.poly-line (x +' inset, y +' (h *' 0.55)) [
+				(x +' inset, y +' (h *' 0.2));
+				(x +' hw, y);
+				(x +' w -' inset, y +' (h *' 0.2));
+				(x +' w -' inset, y +' (h *' 0.55));
+			];
+		]
+	in
+	let strokes x y =
+		let f-size = get-font-size ctx in
+		let ctx-inner = set-font-size (f-size *' 0.7) ctx in
+		let c-ib = read-inline ctx-inner content in
+		let (c-w, c-h, c-d) = get-natural-metrics c-ib in
+		let r = if c-w >' c-h then c-w else c-h in
+		let strokes x y = 
+			(
+				if (Option.from true is-true) then
+					strokes x y
+				else
+					let rr = if w >' h then h else w in
+					let rr = rr *' 0.7 in
+					let hrr = (rr) *' 0.7 in
+					List.append (strokes x y) [
+						fill (Color.red) 
+							(
+								unite-path
+									(Gr.circle (x +' w *' 0.5, y +' h *' 0.5) rr)
+									(Gr.circle (x +' w *' 0.5, y +' h *' 0.5) (rr *' 0.8))
+							);
+						stroke (rr *' 0.2)(Color.red) 
+							(
+								Gr.line 
+									(x +' w *' 0.5 +' hrr, y +' h *' 0.5 -' hrr)
+									(x +' w *' 0.5 -' hrr, y +' h *' 0.5 +' hrr)
+							)
+					]
+			)
+		in
+		if c-w <' 1pt then
+			strokes x y
+		else
+			List.append (strokes x y) [
+				fill (RGB(0.9,0.9,0.9)) (Gr.circle (x +' w *' 0.5, y +' h *' 0.5) r);
+				draw-text (x +' (w -' c-w) *' 0.5, y +' (h -' c-h) *' 0.5) c-ib
+			]
+	in
+	inline-graphics (w +' outset *' 2.0) (h -' outset *' 2.0) (outset *' 2.0) (fun (x, y) ->
+		strokes (x +' outset) (y -' outset)
+	)
+
+let-inline ctx \circled-text color-fill color-text it =
+	let ib = read-inline ctx it in
+	let (w, h, d) = get-natural-metrics ib in
+	let r = (if w >' h then w else h) *' 1.2 in
+	let ctx = set-text-color color-text ctx in
+	inline-graphics r r (d *' 1.2) (fun(x, y) -> [
+		fill (color-fill) (Gr.circle (x +' r *' 0.5, y +' r *' 0.5) r);
+		draw-text (x +' (r -' w) *' 0.5, y +' (r -' h) *' 0.5) ib
+	])
+
+let-inline ctx \colorbox-round color it =
+	let ib = read-inline ctx it in
+	let (w, h, d) = get-natural-metrics ib in
+	let r = h *' 0.2 in
+	let de (x, y) w h d =
+		List.map (fill color) [
+			Gr.circle (x +' r, y -' d +' r) (r *' 2.0);
+			Gr.circle (x +' w -' r, y -' d +' r) (r *' 2.0);
+			Gr.circle (x +' r, y +' h -' r) (r *' 2.0);
+			Gr.circle (x +' w -' r, y +' h -' r) (r *' 2.0);
+			Gr.rectangle (x +' r, y -' d -' r) (x +' w -' r, y +' h +' r);
+			Gr.rectangle (x -' r, y -' d) (x +' w +' r, y +' h -' r)
+		]
+	in
+	inline-frame-inner (r, r, r, r) de ib
+
+
+let-inline ctx \stack-texts its =
+	let ibs = List.map (fun it -> read-inline ctx it) its in
+	let (w, h) = ibs |> List.fold-left (fun (w, h) ib -> (
+		let (tw, th, td) = get-natural-metrics ib in
+		let nw = if tw >' w then tw else w in
+		let nh = if th >' h then th else h in
+		(nw, nh)
+	)) (0mm,0mm) in
+	inline-graphics w h 0mm (fun(x, y) -> 
+		ibs |> List.map (fun ib -> (
+			let (tw, th, td) = get-natural-metrics ib in
+			draw-text (x +' (w -' tw) *' 0.5, y +' (h -' th) *' 0.5) ib
+
+		)))
+
+let-inline ctx \fig-check = 
+	let thickness = 2pt in
+	let s = get-font-size ctx in
+	let color = get-text-color ctx in
+	let (w, h) = (s, s) in
+	let b = s *' 0.3 in
+	inline-graphics w h 0mm (fun(x, y) -> (
+		[
+			Gr.poly-line (x, y +' b) [
+				(x +' b, y);
+				(x +' w, y +' h);
+			] |> stroke thickness color
+		]
+	))
+
+let-inline ctx \fig-cross = 
+	let thickness = 2pt in
+	let s = get-font-size ctx in
+	let color = get-text-color ctx in
+	let (w, h) = (s, s) in
+	inline-graphics w h 0mm (fun(x, y) -> (
+		List.map (stroke thickness color)[
+			Gr.line (x, y) (x +' w, y +' h);
+			Gr.line (x, y +' h) (x +' w, y);
+		]
+	))
+
+let-inline ctx \enlarge r it =
+	let s = get-font-size ctx in
+	let ctx = set-font-size (s *' r) ctx in
+	read-inline ctx it
+
+let-math \fig-vee = ${\text !{\ \ \circled-text (RGB(0.8, 0.8, 0.5)) (Color.black) {${\vee}}\ \ } }
+let-math \fig-wedge = ${\text !{\ \ \circled-text (RGB(0.5, 0.5, 1.0)) (Color.black) {${\wedge}}\ \ } }
+
+
+% vim: set noexpandtab :

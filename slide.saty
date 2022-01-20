@@ -1,0 +1,292 @@
+@require: easytable/easytable
+@require: code
+@require: annot
+@require: list
+@require: class-slydifi/theme/akasaka
+
+
+@import: local
+
+let-inline \code-box text = {
+        \colorbox-round(RGB(0.8,0.8,0.8)){
+            \code(text);
+        }
+    }
+let-math \code-box-math text = ${\text!{\code-box(text);}}
+
+open EasyTableAlias in
+SlydifiAkasaka.document(|
+    draft-mode = true;
+    header-text = Some({\SATySFi; Conf 2021});
+|)'<
+    +make-title(|
+        title = {|プログラミング初心者が|\SATySFi;向けパッケージ|を作ってみた|};
+        author = {|\@yasuo_ozu|};
+        date = {|2021年6月26日|(このスライドは\SLyDIFi;で作成されました)|};
+    |);
+    +frame {本発表の内容について} <
+        +listing {
+            * 最近作ったもの
+            * これからやりたいこと
+            * \SATySFi;に欲しい機能
+        }
+    >
+    +section {|最近作ったもの|} <
+        +frame {\LaTeX;ユーザー向け移行支援ライブラリ} <
+            +p {\uline-b{ \textbf{\LaTeX;から\SATySFi;に移行する場合の障壁} }}
+            +listing {
+                * \emph{\LaTeX;の${\bigcirc\bigcirc}が\SATySFi;にない}
+                * かといってコマンドを自作する(\code(`local.satyh`);を育てる)のは大変
+                * \LaTeX;と\SATySFi;でコマンド名が違うと混乱する
+                * \emph{\LaTeX;と同じ名前のコマンドを使えると安心}\footnote{\SATySFi;と同様なコマンド(インラインコマンド, ブロックコマンド)を提供すると、スタイルとセマンティクスが混ざるという問題がある}
+            }
+        >
+        +frame {\LaTeX;ユーザー向け移行支援ライブラリ} <
+            +p {\uline-b{\code(`satysfi-latexcmds`);}}
+            +p {
+                近日公開予定
+            }
+            +listing {
+                * 行・ページ分割${\cdots}
+                \uline-b{\\linebreak}
+                \+clearpage
+                \\clearpage
+                \+pagebreak
+                \\pagebreak
+                \+newpage
+                \\newpage
+                * スペーシング${\cdots}
+	            \\hfill
+	            \\hspace
+	            \\hskip
+	            \\vspace
+	            \\vskip
+	            \\mspace
+	            \\mskip
+	            \+vspace
+	            \+vskip
+	            \\rquad
+	            \\quad
+	            \\hquad
+	            \\qquad
+	            \\mrquad
+	            \\mquad
+	            \\mhquad
+	            \\mqquad
+                * ボックス${\cdots}
+                \\mbox
+                \\fbox
+                \\makebox
+                \\framebox
+                \uline-b{\\parbox}
+                \\raisebox
+                \uline-b{\\resizebox}
+                \uline-b{\\scalebox}
+                \uline-b{\\movebox}
+                \\phantom
+                \uline-b{\\rotatebox}
+	            \\uline
+	            \\muline
+	            \+screen
+	            \+shadebox
+	            \+shadowbox
+            }
+        >
+        +frame {\LaTeX;ユーザー向け移行支援ライブラリ} <
+            +p {\uline-b{\code(`satysfi-latexcmds`);}}
+            +p {
+                近日公開予定
+            }
+            +listing {
+                * レイアウト${\cdots}
+                \+centering
+                \+flushleft
+                \+flushright
+                \+centerings
+                \+flushlefts
+                \+flushrights
+                \uline-b{\\overset}
+                \uline-b{\\underset}
+                \uline-b{\\normal-overset}
+                \uline-b{\\normal-underset}
+                \uline-b{\\overbrace}
+                \uline-b{\\underbrace}
+                * フォント${\cdots}
+                \+fontsize
+                \\fontsize
+                \\mfontsize
+                \+rfontsize
+                \\rfontsize
+                \\mrfontsize
+                \+textcolor
+                \\textcolor
+                \\mtextcolor
+                \uline-b{\\math-middle}
+                \\textit
+                \\textbf
+                \\textrm
+                \\textsf
+            }
+        >
+        +frame {学振(科研費)向けテンプレート} <
+            +fig-on-right(FigBox.include-image 13cm `satysfi-gakushin.jpg`)<
+                +p {\uline-b{学振\SATySFi;}}
+                +p {
+                    既に存在する実装${\cdots} MS Word版, \LaTeX;版
+                }
+                +p {
+                    \uwave-b{\textbf{課題}}${\cdots}画像ファイル(PDF形式)を読み込んでいるため、パッケージとして\code(`~/.satysfi/dist/packages`);以下に入れられない
+                }
+                +p {
+                    puripuri2100さんのsvg2satyを使えばできる?
+                }
+            >
+        >
+    >
+    +section {|これからやりたいこと|相互参照ライブラリ|} <
+        +frame {モチベーション1} <
+            +p { \uline-b{\textbf{クラスファイルの作成を簡単化する}} }
+            +centerings {
+                |\SATySFi;を\emph{うまく活用}するためには\uwave-b{\colorbox-round(RGB(0.0,0.8,0.0)){クラスファイル}の編集が必須}
+                |一方
+                |\colorbox-round(RGB(0.0,0.8,0.0)){クラスファイル}を自作するのは\uwave-b{負担が大きい}
+            |}
+            +fig-frame<
+                +p {\uline-b{ \textbf{標準的な\colorbox-round(RGB(0.0,0.8,0.0)){クラスファイル}の機能} }}
+                +listing {
+                    * ドキュメントの構造に関わるコマンド(\code(`+section`);, \code(`+p`);など)
+                    * 図版 ${\rightarrow} \uline{\code(`satysfi-figbox`);を使おう}
+                    * footnote表示 / floating環境の管理
+                    * フォント管理 ${\rightarrow} \uline{\code(`satysfi-fss`);を使おう}
+                    * \emph{相互参照} ${\nwarrow}
+                    * \emph{目次作成} ${\swarrow} \uwave-b{\textbf{これらの機能をパッケージとして切り出す}}
+                }
+            >
+        >
+        +frame{モチベーション2}<
+            +listing {
+                * \emph{\code-box(`+section`);以外(図表や数式、単語など)の目次(索引)}を作りたい
+                * \code(`satysfi-figbox`);(図の配置)や\code(`satysfi-azmath`);(数式)のような\emph{外部パッケージから目次項目を作成したい}
+                * \textbf{外部パッケージ}から\emph{クラスファイルの目次機能にアクセスできない}\footnote{頑張ればできなくもないが...}
+                * \SATySFi;の相互参照APIを目次用に使うのも無理
+                    ** \code-box(`register-cross-reference`);で登録できるのは\code(`string`);\br;${\rightarrow}\textbf{目次用のタイトルを\code(`inline-text`);で与えられない}
+                    ** \code-box(``list-cross-references``);のようなAPIがない${\rightarrow}目次生成時\textbf{項目を列挙できない}
+                        %***\code-box(```register-cross-reference `fig:myfigure:title` {\SATySFi;の図} ```);ができない
+            }
+            +p{}
+            +centering {
+                \textbf{${\Rightarrow}目次を管理するための\emph{クラスファイルから独立したパッケージ}が必要}
+            }
+        >
+        +multiframe(2) {現状の\SATySFi;の相互参照機能} <
+            +ghost (SlydifiOverlay.only 1)<
+                +quotation <
+                    +fontsize(12pt)<
+                        +p {
+                            相互参照 (cross reference) とは，章節や図表の番号といった “内容そのものに関係なく割り当てられ，かつ文書中の他の場所から指し示すときに使われる” 情報を自動的に取り扱う機能である．\ \ \textbf{ーThe \SATySFi; Book}
+                        }
+                    >
+                >
+                +fig-frame<
+                    +p { \uline-b{\textbf{\SATySFi;の提供する仕組み}} }
+                    +p {
+                        \textbf{キー}を指定し、\textbf{補助ファイル}(\code(`.satysfi-aux`);)へ\textbf{文字列}を読み書きする方法
+                    }
+                    +align(${
+                        |\code-box-math!(`register-cross-reference`) |\ :\ \mathrm{string}\rightarrow\mathrm{string}\rightarrow\mathrm{unit}\notag
+                        |\code-box-math!(`get-cross-reference`) |\ :\ \mathrm{string}\rightarrow\mathrm{string\ option}\notag
+                    |});
+                    +p {
+                        \code-box(`get-cross-reference`);が\code(`None`);を返す、または\textbf{補助ファイル}が存在する場合、\code-box(`register-cross-reference`);で登録する文字列が以前登録したものと異なる場合、\emph{ドキュメントの生成を繰り返す}
+                    }
+                >
+            >
+            +ghost (SlydifiOverlay.only 2)<
+                +fig-frame<
+                    +p { \uline-b{\textbf{クラスファイルの提供する仕組み(例)}} }
+                    +listing {
+                        * 図表番号やページを表示する機能
+                            \alignat(2)(${
+                                |\code-box-math!(`\ref`) |\ :\ \sqbracket{\mathrm{string}}\ \text!{\code(`inline-cmd`);}\notag
+                                |\code-box-math!(`\ref-page`) |\ :\ \sqbracket{\mathrm{string}}\ \text!{\code(`inline-cmd`);}\notag
+                            |});
+                            ** フォーマット付き\ \ \code-box(`\ref-sec`);, \code-box(`\ref-tbl`);, \code-box(`\ref-fig`);, \code-box(`\ref-bbl`);, ...
+                        * 図表番号やページを与える機能\ \ \code-box(`+figure`);, \code-box(`+section`);, \code-box(`+subsection`);,...
+                    }
+                >
+                +fig-frame<
+                    +p { \uline-b{\textbf{外部パッケージから相互参照を扱いたい場合}} }
+                    +p {
+                        \code-box(`register-cross-reference`);,\ \code-box(`get-cross-reference`);を直接用いる。\textbf{キー}は
+                    }
+                    +centering {
+                        \colorbox-round(RGB(0.9,0.9,0.9)){\`\underset{\fontsize(10pt){環境}}{fig}:\underset{\fontsize(10pt){タグ}}{myfigure}:\underset{\fontsize(10pt){種類}}{num}\`}${\rightarrow} 図表等の番号\ \ 
+                        \colorbox-round(RGB(0.9,0.9,0.9)){\`\underset{\fontsize(10pt){環境}}{fig}:\underset{\fontsize(10pt){タグ}}{myfigure}:\underset{\fontsize(10pt){種類}}{page}\`}${\rightarrow} ページ番号
+                    }
+                    +p {
+                        環境は sec, fig, tbl, bbl(引用文献)等
+                    }
+                >
+            >
+        >
+        +frame{概要}<
+            +p { \uline-b{\textbf{相互参照機能}} }
+            +listing {
+                * \code(``\make-label(`fig:myfigure`){1}``);
+                * \code(``\make-label(`bib:YasuoThesis`){1}``);
+                * \code(``\make-label-with-title(`sec:mysection`){1.1}?:[1; 1]{最初のセクション}``);
+                * \code(```\refs([`fig:myfig`; `sec:first`; `bib:bib1`; `bib:bib2`]);```);
+                    ** ${\rightarrow} 図1, 1.1章, [1-3,4]
+                    ** 具体的なフォーマットはクラスファイル等から設定可能
+                * \code(```ページ\ref-page(`fig:myfig`);の図を参照```);
+            }
+            +p { \uline-b{\textbf{目次作成機能}} }
+            +listing {
+                * \code(``\make-toc([`sec`; `fig`]);``);
+            }
+        >
+        +frame{他に作りたいもの} <
+            +listing {
+                * \uline-b{自由なレイアウトを実現するクラスファイル}
+                    ** 履歴書クラスファイルを作ろうとした${\rightarrow}自由度を上げたい${\rightarrow}挫折
+                    ** ボックスを組み合わせてより一般的なレイアウトを自由に作れるように
+                    ** CSSのflexboxのようなインターフェース
+                * \uline-b{Tikzみたいなもの}
+                    ** 有名な\TeX;向けのグラフィックパッケージ
+            }
+        >
+    >
+    +section{|\SATySFi;に欲しい機能|}<
+        +frame{コマンドの引数部で名前空間をopen} <
+            +listing {
+                * 以下のような表を実現するためには\code(`open EasyTableAlias`);が必要
+                    ** 名前空間の汚染
+                    ** \code(`EasyTableAlias.l`);, \code(`EasyTableAlias.c`);等と指定すればよいが...。
+            }
+            +code(```
+\easytable[l;c;r]{
+| header1 | header2 | header3
+| align left | align center | align right
+| a | b | c
+|}
+            ```);
+        >
+        +frame{depsファイルを生成したい} <
+            +listing {
+                * 現状、Satyrographosでは\code(`@require:`);, \code(`@include:`);された依存関係のみ対応
+                    ** \code(`inline-graphics`);や\code(`read-file`);は静的解析できない
+                    ** \SATySFi;に「PDF出力なしモード」を用意すればdepsファイルを生成可能?
+                        *** \code(`inline-graphics`);は「空の画像」を返し、ファイル名を記録
+                        *** \code(`read-file`);は何を返せばいい?
+                            **** Optionを返すという提案(ざぎんさん)
+            }
+        >
+        +frame{textモードでもinline-blocks} <
+            +listing {
+                * textモードでMarkdownやHTML等を生成する場合、図や数式等を入れられない
+                * textモードでinline-blocksを返すコマンドを使う場合、通常の\SATySFi;を使って画像を生成し埋め込む
+            }
+        >
+
+    >
+>
